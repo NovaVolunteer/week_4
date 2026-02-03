@@ -216,6 +216,14 @@ sensitivity = 943/(943+72)   # = TP/(TP+FN)
 specificity = 7707/(7707+4)   # = TN/(TN+FP)
 print(sensitivity, specificity)
 
+# %%
+# Calculate permutation importance for the neigh model
+from sklearn.inspection import permutation_importance
+
+# After fitting your KNN model
+perm_importance = permutation_importance(neigh, X_test, y_test, n_repeats=10)
+importances = perm_importance.importances_mean
+
 #%%
 # ------- Selecting the correct 'k' ---------
 def chooseK(k, X_train, y_train, X_test, y_test):
@@ -514,4 +522,4 @@ print(iris2_probs)
 
 #%%
 newlist = [x for x in range(10)] 
-# %%
+
