@@ -2,7 +2,7 @@
 KNN: Week 6
 """
 
-#%%
+# %%
 # first, import your libraries!
 import pandas as pd
 import numpy as np
@@ -15,15 +15,16 @@ import random
 from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn.metrics import classification_report
 from sklearn import metrics
+from sklearn import preprocessing
 
-#%%
+# %%
 # -------- Data prep --------
 # Based on the following data summary, what questions and business metric should we use? 
 
 bank_data = pd.read_csv("https://raw.githubusercontent.com/UVADS/DS-3001/main/data/bank.csv")
 print(bank_data.info())
 
-#%%
+# %%
 # now, let's check the data composition
 print("marital", bank_data.marital.value_counts())   # 3 levels
 print("education", bank_data.education.value_counts())   # 4 levels
@@ -34,22 +35,23 @@ print("housing", bank_data.housing.value_counts())   # 2 levels
 print("poutcome", bank_data.poutcome.value_counts())   # 4 levels
 print("signed up", bank_data['signed up'].value_counts())   # 2 levels
 
-#%%
+# %%
 # Let's collapse `job` which has 12 levels
 employed = ['admin', 'blue-collar', 'entrepreneur', 'housemaid', 'management',
            'self-employed', 'services', 'technician']
+
 # unemployed = ['student', 'unemployed', 'unknown']
 bank_data.job = bank_data.job.apply(lambda x: "Employed" if x in employed else "Unemployed")
 print(bank_data.job.value_counts())
 
-#%%
+# %%
 # now, we convert the appropriate columns into factors
 cat = ['job', 'marital', 'education', 'default', 'housing', 'contact',
       'poutcome', 'signed up']   # select the columns to convert
 bank_data[cat] = bank_data[cat].astype('category')
 bank_data.info()
 
-#%%
+# %%
 # -------- Check for missing data --------
 
 import seaborn as sns
@@ -65,23 +67,24 @@ sns.displot(
 
 # NO MISSING DATA!
 
-#%%
+# %%
 # now, we normalize the numeric variables
 numeric_cols = bank_data.select_dtypes(include='int64').columns
 print(numeric_cols)
 
 
-#%%
-from sklearn import preprocessing
+# %%
+
 scaler = preprocessing.MinMaxScaler()
 d = scaler.fit_transform(bank_data[numeric_cols])   # conduct data transformation
-scaled_df = pd.DataFrame(d, columns=numeric_cols)   # convert back to pd df; transformation converts to array
+scaled_df = pd.DataFrame(d, columns=numeric_cols)   # convert back to pd df; transformation 
+                                                    # converts to array
 bank_data[numeric_cols] = scaled_df   # put data back into the main df
 
-#%%
-bank_data.describe()   # as we can see, the data is now normalized!
+# %%
+bank_data.describe()   # as we can see, the data is now scaled!
 
-#%%
+# %%
 # Now, we onehot encode the data -- for reference, this is the process of converting categorical variables to a usable form for 
 # a machine learning algorithm.
 
@@ -93,26 +96,31 @@ encoded.head()   # note the new columns
 
 #What types of variables does the get_dummies function work on and does it have a feature to remove the original column?
 
-#%%
+# %%
 # now we want to drop the old columns we onehot encoded 
 bank_data = bank_data.drop(cat_cols, axis=1)
 
-#%%
+# %%
 # and then join them
 bank_data = bank_data.join(encoded)
 #What is this join function doing? What is it joining on?
 
-#%%
+# %%
 print(bank_data.info())
+
+# %%
+bank_data = bank_data.drop(['job_Unemployed', 'default_yes', 'signed up_0'], axis=1)
+# got to the cell above and rerun to check, should be 24 columns now
+
 
 #%%
 # -------- Train model! --------
 # check prevalence
-print(bank_data['signed up_1'].value_counts()[1] / bank_data['signed up_1'].count())
-# This means that at random, we have an 11.6% chance of correctly picking a subscribed individual. Let's see if kNN can do any better.
+print(bank_data['signed up_1'].value_counts(normalize=True))   # about 11% sign up rate
 
-#%%
-               # dependent variable
+# %%
+
+# dependent variable
 train, test = train_test_split(bank_data,  test_size=0.4, stratify = bank_data['signed up_1']) 
 test, val = train_test_split(test, test_size=0.5, stratify=test['signed up_1'])
 
@@ -144,10 +152,11 @@ def clean_and_split_data(df, target, test_size=0.4, val_size=0.5, random_state=1
 # Usage
 train, test, val = clean_and_split_data(bank_data, 'signed up')
 
-#%%
+# %%
 # now, let's train the classifier for k=9
 import random
-random.seed(1984)   # kNN is a random algorithm, so we use `random.seed(x)` to make results repeatable
+random.seed(1984)   # kNN is a random algorithm, so we use `random.seed(x)` 
+                    # to make results repeatable
 
 X_train = train.drop(['signed up_1'], axis=1)
 y_train = train['signed up_1'].values
@@ -155,30 +164,29 @@ y_train = train['signed up_1'].values
 neigh = KNeighborsClassifier(n_neighbors=9)
 neigh.fit(X_train, y_train)
 
-# Measure accuracy on the training data
-X_train = train.drop(['signed up_1'], axis=1)
-y_train = train['signed up_1'].values
-
-#%%
+# %%
 train_accuracy = neigh.score(X_train, y_train)
 print(f"Training Accuracy: {train_accuracy}")
 
-#%%
-# now, we check the model's accuracy on the test data:
+# %%
+# now, we check the model's accuracy on the validation data:
 
 X_val = val.drop(['signed up_1'], axis=1)
 y_val = val['signed up_1'].values
 
 print(neigh.score(X_val, y_val))
 
-#%%
-# now, we test the accuracy on our validation data.
+# we use the validation data to tune our model hyperparameters (in this case, 'k')
+# once we are satisfied with the model, we will test it on the test data.
+
+# %%
+# now, we test the accuracy on our test data.
 
 X_test = test.drop(['signed up_1'], axis=1).values
 y_test = test['signed up_1'].values
 
 print(neigh.score(X_test, y_test))
-#%%
+# %%
 # -------- Evaluate model --------
 # A 99.0% accuracy rate is pretty good but keep in mind the baserate is roughly 89/11, so we have more or less a 90% chance of 
 # guessing right if we don't know anything about the customer, but the negative outcomes we don't really care about, this model's 
@@ -226,7 +234,8 @@ def chooseK(k, X_train, y_train, X_test, y_test):
 #%%
 # REMEMBER: Python is end-exclusive; we want UP to 21 to we'll have to extend the end bound to include it
 test = pd.DataFrame({'k':list(range(1,22,2)), 
-                     'accu':[chooseK(i, X_train, y_train, X_test, y_test) for i in list(range(1, 22, 2))]})
+                     'accu':[chooseK(i, X_train, y_train, X_test, y_test) 
+                             for i in list(range(1, 22, 2))]})
 
 #%%
 print(test)
